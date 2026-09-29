@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Visitas em campo — Multiluz Solar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root{
+    --bg:#10131a;
+    --surface:#181c25;
+    --surface-2:#1f2430;
+    --border:#2a3040;
+    --text:#eef0f4;
+    --text-muted:#8b93a5;
+    --accent:#f2a93b;
+    --accent-dim:#7a5a24;
+    --live:#3ecf8e;
+    --u-bh:#5fb3d9;
+    --u-alta:#f2a93b;
+    --u-shark:#4fd1a5;
+    --u-jm:#c792ea;
+    --u-vi:#94a3b8;
+    --u-na:#5b6272;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',ui-sans-serif,system-ui,-apple-system,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:'IBM Plex Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;}
+
+  header{
+    padding:20px 28px 16px;
+    display:flex;
+    flex-wrap:wrap;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:10px 20px;
+  }
+  header h1{
+    font-size:20px;
+    font-weight:700;
+    margin:0;
+    letter-spacing:-0.01em;
+  }
+  header h1 span{color:var(--accent);}
+  .right{display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
+  .clock{
+    font-size:19px;
+    font-weight:600;
+    color:var(--text);
+    letter-spacing:0.02em;
+  }
+  .live-badge{
+    display:flex;align-items:center;gap:7px;
+    font-size:12px;font-weight:700;letter-spacing:0.04em;
+    color:var(--live);
+    border:1px solid rgba(62,207,142,.35);
+    background:rgba(62,207,142,.08);
+    padding:4px 10px 4px 8px;
+    border-radius:99px;
+  }
+  .dot{
+    width:7px;height:7px;border-radius:50%;
+    background:var(--live);
+    box-shadow:0 0 0 0 rgba(62,207,142,.6);
+    animation:pulse 1.8s infinite;
+  }
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(62,207,142,.55);}
+    70%{box-shadow:0 0 0 8px rgba(62,207,142,0);}
+    100%{box-shadow:0 0 0 0 rgba(62,207,142,0);}
+  }
+  .status-line{
+    font-size:12.5px;
+    color:var(--text-muted);
+  }
+
+  .progress-track{
+    height:2px;
+    background:var(--border);
+    overflow:hidden;
+  }
+  .progress-fill{
+    height:100%;
+    width:0%;
+    background:linear-gradient(90deg,var(--accent-dim),var(--accent));
+    transition:width linear;
+  }
+
+  .kpis{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    padding:16px 28px;
+    border-bottom:1px solid var(--border);
+  }
+  .kpi{
+    border:1px solid var(--border);
+    background:var(--surface);
+    border-radius:var(--radius);
+    padding:10px 16px;
+    min-width:110px;
+    transition:border-color .3s, background .3s;
+  }
+  .kpi .n{font-size:24px;font-weight:800;transition:transform .15s;}
+  .kpi .n.bump{transform:scale(1.18);}
+  .kpi .l{font-size:12.5px;color:var(--text-muted);margin-top:2px;}
+  .kpi.total{border-color:var(--accent-dim);background:linear-gradient(180deg,rgba(242,169,59,.10),rgba(242,169,59,.02));}
+  .kpi.total .n{color:var(--accent);}
+  .swatch{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;position:relative;top:-1px;}
+
+  main{
+    display:flex;
+    height:calc(100vh - 166px);
+    min-height:500px;
+  }
+  #map{
+    flex:1.5;
+    background:#0c0e13;
+  }
+  aside{
+    flex:1;
+    max-width:420px;
+    border-left:1px solid var(--border);
+    overflow-y:auto;
+    background:var(--surface);
+  }
+  aside h2{
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--text-muted);
+    margin:0;
+    padding:14px 18px 10px;
+    position:sticky;
+    top:0;
+    background:var(--surface);
+    border-bottom:1px solid var(--border);
+    z-index:2;
+  }
+  .visit{
+    display:flex;
+    gap:12px;
+    padding:12px 18px;
+    border-bottom:1px solid var(--border);
+    border-left:3px solid transparent;
+    animation:enter .4s ease both;
+  }
+  .visit.now{
+    border-left-color:var(--live);
+    background:rgba(62,207,142,.05);
+  }
+  @keyframes enter{
+    from{opacity:0;transform:translateY(-6px);}
+    to{opacity:1;transform:translateY(0);}
+  }
+  .visit .t{
+    font-size:14px;
+    font-weight:600;
+    min-width:44px;
+  }
+  .visit .body{flex:1;min-width:0;}
+  .visit .unit{
+    font-size:13.5px;
+    font-weight:600;
+    display:flex;align-items:center;gap:6px;
+  }
+  .now-tag{
+    font-size:10px;font-weight:700;letter-spacing:.03em;
+    color:var(--live);
+    border:1px solid rgba(62,207,142,.4);
+    border-radius:99px;
+    padding:1px 6px;
+  }
+  .visit .loc{
+    font-size:12.5px;
+    color:var(--text-muted);
+    margin-top:2px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .visit .cons{
+    font-size:12px;
+    color:var(--text-muted);
+    margin-top:2px;
+  }
+  .empty, .error{
+    padding:30px 18px;
+    color:var(--text-muted);
+    font-size:13.5px;
+    line-height:1.5;
+  }
+  .error{color:#e0847a;}
+
+  .leaflet-popup-content-wrapper{
+    background:var(--surface-2);
+    color:var(--text);
+    border:1px solid var(--border);
+  }
+  .leaflet-popup-tip{background:var(--surface-2);}
+  .leaflet-container{background:#0c0e13;}
+
+  .marker-pop{animation:pop .35s cubic-bezier(.34,1.56,.64,1) both;}
+  @keyframes pop{
+    from{transform:scale(0);opacity:0;}
+    to{transform:scale(1);opacity:1;}
+  }
+  .marker-now{animation:ring 1.6s ease-out infinite;}
+  @keyframes ring{
+    0%{stroke-opacity:.9;}
+    50%{stroke-opacity:.25;}
+    100%{stroke-opacity:.9;}
+  }
+
+  @media (max-width:820px){
+    header{padding:14px 18px 12px;}
+    .kpis{padding:12px 18px;overflow-x:auto;flex-wrap:nowrap;}
+    main{flex-direction:column;height:auto;}
+    #map{height:300px;flex:none;}
+    aside{max-width:none;border-left:none;border-top:1px solid var(--border);max-height:55vh;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Visitas em campo — <span>Multiluz Solar</span></h1>
+    <div class="status-line" id="statusText">carregando…</div>
+  </div>
+  <div class="right">
+    <div class="clock mono" id="clock">--:--:--</div>
+    <div class="live-badge"><span class="dot"></span>AO VIVO</div>
+  </div>
+</header>
+<div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+
+<div class="kpis" id="kpis">
+  <div class="kpi total"><div class="n mono">—</div><div class="l">Total hoje</div></div>
+</div>
+
+<main>
+  <div id="map"></div>
+  <aside>
+    <h2 id="listTitle">Visitas de hoje</h2>
+    <div id="list"><div class="empty">Carregando visitas…</div></div>
+  </aside>
+</main>
+
+<script>
+// ⚠️ Cole aqui a URL /exec da sua implantação do Apps Script
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx6oLqfq2jk6BNrnn-dkQN6I8Zsd5QqMRyj7qR1L6spbx2VhLkbfdfiBMbuRCRCCNsW/exec';
+
+const REFRESH_MS = 3 * 60 * 1000; // 3 min
+const GEOCODE_CACHE_KEY = 'multiluz_geocode_cache_v1';
+
+const UNIT_COLORS = {
+  'Belo Horizonte': 'var(--u-bh)',
+  'BH': 'var(--u-bh)',
+  'Alta Potência': 'var(--u-alta)',
+  'Shark Solar': 'var(--u-shark)',
+  'João Monlevade': 'var(--u-jm)',
+  'Vendas Internas': 'var(--u-vi)',
+  'Não identificado': 'var(--u-na)'
+};
+function unitColor(unit){
+  for (const k in UNIT_COLORS) if (unit && unit.indexOf(k) !== -1) return getCss(UNIT_COLORS[k]);
+  return getCss(UNIT_COLORS['Não identificado']);
+}
+function getCss(varName){
+  const v = varName.match(/var\((--[a-z-]+)\)/);
+  return v ? getComputedStyle(document.documentElement).getPropertyValue(v[1]).trim() : varName;
+}
+
+const map = L.map('map', { zoomControl: true, attributionControl: true })
+  .setView([-19.85, -43.55], 8);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  maxZoom: 18,
+  attribution: '&copy; OpenStreetMap &copy; CARTO'
+}).addTo(map);
+
+let markers = [];        // { marker, visit }
+let currentVisits = [];
+let lastKpis = {};        // label -> last rendered number, for count-up animation
+let refreshStartedAt = Date.now();
+
+function loadGeocodeCache(){
+  try { return JSON.parse(localStorage.getItem(GEOCODE_CACHE_KEY) || '{}'); }
+  catch(e){ return {}; }
+}
+function saveGeocodeCache(cache){
+  try { localStorage.setItem(GEOCODE_CACHE_KEY, JSON.stringify(cache)); } catch(e){}
+}
+const geocodeCache = loadGeocodeCache();
+function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+async function geocode(address){
+  if (!address) return null;
+  if (geocodeCache[address]) return geocodeCache[address];
+  try {
+    const q = encodeURIComponent(address + ', Brasil');
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${q}`);
+    const data = await res.json();
+    if (data && data[0]) {
+      const coords = { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+      geocodeCache[address] = coords;
+      saveGeocodeCache(geocodeCache);
+      return coords;
+    }
+  } catch(e){ /* fica sem pin nesse ciclo */ }
+  return null;
+}
+
+function isNow(visit){
+  const t = Date.now();
+  return t >= new Date(visit.startISO).getTime() && t <= new Date(visit.endISO).getTime();
+}
+
+function fmtAgo(iso){
+  const diff = Math.max(0, Date.now() - new Date(iso).getTime());
+  const min = Math.round(diff / 60000);
+  if (min < 1) return 'agora mesmo';
+  if (min === 1) return 'há 1 min';
+  return `há ${min} min`;
+}
+
+// ---- Contador animado (count-up) ----
+function animateNumber(el, from, to, duration){
+  if (from === to) { el.textContent = to; return; }
+  const start = performance.now();
+  el.classList.add('bump');
+  function step(now){
+    const p = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - p, 3);
+    el.textContent = Math.round(from + (to - from) * eased);
+    if (p < 1) requestAnimationFrame(step);
+    else { el.textContent = to; setTimeout(()=>el.classList.remove('bump'), 150); }
+  }
+  requestAnimationFrame(step);
+}
+
+function renderKpis(data){
+  const el = document.getElementById('kpis');
+  const units = Object.keys(data.byUnit).sort((a,b)=>data.byUnit[b]-data.byUnit[a]);
+  const entries = [['Total hoje', data.total, true]].concat(units.map(u => [u, data.byUnit[u], false]));
+
+  el.innerHTML = entries.map(([label, val, isTotal]) => `
+    <div class="kpi ${isTotal ? 'total' : ''}" data-label="${label}">
+      <div class="n mono">${lastKpis[label] ?? 0}</div>
+      <div class="l">${isTotal ? '' : `<span class="swatch" style="background:${unitColor(label)}"></span>`}${label}</div>
+    </div>
+  `).join('');
+
+  entries.forEach(([label, val]) => {
+    const numEl = el.querySelector(`.kpi[data-label="${CSS.escape(label)}"] .n`);
+    animateNumber(numEl, lastKpis[label] ?? 0, val, 650);
+    lastKpis[label] = val;
+  });
+}
+
+function renderList(visits){
+  const el = document.getElementById('list');
+  if (!visits.length){
+    el.innerHTML = '<div class="empty">Nenhuma visita agendada ainda hoje.</div>';
+    return;
+  }
+  el.innerHTML = visits.map((v, i) => `
+    <div class="visit ${isNow(v) ? 'now' : ''}" data-idx="${i}" style="animation-delay:${Math.min(i,12)*30}ms">
+      <div class="t mono" style="color:${unitColor(v.unit)}">${v.time}</div>
+      <div class="body">
+        <div class="unit">${v.unit} ${isNow(v) ? '<span class="now-tag">agora</span>' : ''}</div>
+        <div class="loc">${v.location || 'Local não informado'}</div>
+        ${v.consultor ? `<div class="cons">Consultor: ${v.consultor}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+async function renderMap(visits){
+  markers.forEach(m => map.removeLayer(m.marker));
+  markers = [];
+  const withLoc = visits.filter(v => v.location);
+  const bounds = [];
+  for (const v of withLoc) {
+    const coords = await geocode(v.location);
+    await sleep(150);
+    if (!coords) continue;
+    const marker = L.circleMarker([coords.lat, coords.lon], {
+      radius: 7,
+      color: unitColor(v.unit),
+      fillColor: unitColor(v.unit),
+      fillOpacity: 0.85,
+      weight: 1.5,
+      className: 'marker-pop' + (isNow(v) ? ' marker-now' : '')
+    }).addTo(map);
+    marker.bindPopup(`<strong>${v.time}</strong> · ${v.unit}${isNow(v) ? ' · <span style="color:var(--live)">em andamento</span>' : ''}<br>${v.location}${v.consultor ? '<br>Consultor: ' + v.consultor : ''}`);
+    markers.push({ marker, visit: v });
+    bounds.push([coords.lat, coords.lon]);
+  }
+  if (bounds.length) map.fitBounds(bounds, { padding: [40,40], maxZoom: 12, animate: true, duration: 0.8 });
+}
+
+// ---- Ticker: roda a cada segundo, independente do refresh de dados ----
+function tick(){
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('pt-BR', { hour12: false });
+
+  const elapsed = Date.now() - refreshStartedAt;
+  document.getElementById('progressFill').style.transitionDuration = '1s';
+  document.getElementById('progressFill').style.width =
+    Math.min(100, (elapsed / REFRESH_MS) * 100) + '%';
+
+  // Atualiza status "em andamento" sem esperar o próximo refresh
+  document.querySelectorAll('.visit').forEach(node => {
+    const v = currentVisits[Number(node.dataset.idx)];
+    if (!v) return;
+    node.classList.toggle('now', isNow(v));
+  });
+  markers.forEach(({ marker, visit }) => {
+    const path = marker.getElement && marker.getElement();
+    if (path) path.classList.toggle('marker-now', isNow(visit));
+  });
+}
+
+async function refresh(){
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+
+    currentVisits = data.visits;
+    refreshStartedAt = Date.now();
+    document.getElementById('progressFill').style.transitionDuration = '0s';
+    document.getElementById('progressFill').style.width = '0%';
+
+    document.getElementById('statusText').textContent =
+      `${data.date} · dados de ${fmtAgo(data.generatedAt)}`;
+    document.getElementById('listTitle').textContent = `Visitas de hoje (${data.total})`;
+
+    renderKpis(data);
+    renderList(data.visits);
+    renderMap(data.visits);
+  } catch (err) {
+    document.getElementById('statusText').textContent = 'erro ao atualizar';
+    document.getElementById('list').innerHTML =
+      `<div class="error">Não foi possível carregar os dados. Confira se a URL do Apps Script em APPS_SCRIPT_URL está correta e se a implantação está com acesso "Qualquer pessoa".<br><br>Detalhe: ${err.message}</div>`;
+  }
+}
+
+refresh();
+setInterval(refresh, REFRESH_MS);
+setInterval(tick, 1000);
+tick();
+</script>
+
+</body>
+</html>
