@@ -223,6 +223,40 @@
     100%{stroke-opacity:.9;}
   }
 
+  .far-ticker{
+    display:flex;align-items:stretch;
+    border-bottom:1px solid var(--border);
+    background:var(--surface);
+    overflow:hidden;
+    height:40px;
+  }
+  .far-ticker[hidden]{display:none;}
+  .far-label{
+    flex:none;display:flex;align-items:center;gap:6px;
+    padding:0 14px 0 28px;
+    font-size:12px;font-weight:700;letter-spacing:.03em;
+    color:var(--accent);
+    background:linear-gradient(90deg,var(--surface) 80%,transparent);
+    position:relative;z-index:1;
+    white-space:nowrap;
+  }
+  .far-viewport{flex:1;overflow:hidden;position:relative;
+    -webkit-mask-image:linear-gradient(90deg,transparent,#000 24px,#000 calc(100% - 24px),transparent);
+            mask-image:linear-gradient(90deg,transparent,#000 24px,#000 calc(100% - 24px),transparent);}
+  .far-track{
+    display:inline-flex;align-items:center;height:100%;
+    white-space:nowrap;
+    animation:farScroll linear infinite;
+    will-change:transform;
+  }
+  .far-ticker:hover .far-track{animation-play-state:paused;}
+  @keyframes farScroll{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+  .far-item{display:inline-flex;align-items:center;gap:7px;padding:0 22px;font-size:13px;color:var(--text-muted);}
+  .far-item b{color:var(--text);font-weight:600;}
+  .far-item .km{color:var(--accent);font-weight:600;}
+  .far-item .u{width:7px;height:7px;border-radius:50%;flex:none;}
+  @media (prefers-reduced-motion: reduce){ .far-track{animation-duration:0s !important;} .far-viewport{overflow-x:auto;} }
+
   .ranking{
     padding:22px 28px 32px;
     border-top:1px solid var(--border);
@@ -274,6 +308,7 @@
 
   @media (max-width:820px){
     .ranking{padding:18px 18px 28px;}
+    .far-label{padding-left:18px;}
     .rk-grid{grid-template-columns:1fr;}
     header{padding:14px 18px 12px;}
     .kpis{padding:12px 18px;overflow-x:auto;flex-wrap:nowrap;}
@@ -296,6 +331,10 @@
   </div>
 </header>
 <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+<div class="far-ticker" id="farTicker" hidden>
+  <div class="far-label" id="farLabel">📍 Visitas longe · 7 dias</div>
+  <div class="far-viewport"><div class="far-track" id="farTrack"></div></div>
+</div>
 
 <div class="kpis" id="kpis">
   <div class="kpi total"><div class="n mono">—</div><div class="l">Total hoje</div></div>
@@ -490,6 +529,24 @@ function renderRanking(rk){
   renderRankList('rkTeam', rk.equipe, unitColor);
 }
 
+function renderFar(list, limitKm){
+  const box = document.getElementById('farTicker');
+  if (!list || !list.length){ box.hidden = true; return; }
+  box.hidden = false;
+  document.getElementById('farLabel').textContent = `📍 Mais de ${limitKm || 40} km · próximos 7 dias (${list.length})`;
+  const items = list.map(v => `
+    <span class="far-item">
+      <span class="u" style="background:${unitColor(v.unit)}"></span>
+      <b>${escapeHtml(v.city)}</b>
+      ${v.consultor ? '· ' + escapeHtml(v.consultor) : '· <i>sem consultor</i>'}
+      · ${escapeHtml(v.weekday)} ${escapeHtml(v.date)} às ${escapeHtml(v.time)}
+      · <span class="km mono">${v.km} km</span>
+    </span>`).join('');
+  const track = document.getElementById('farTrack');
+  track.innerHTML = items + items; // duplicado para o loop contínuo
+  track.style.animationDuration = Math.max(20, list.length * 7) + 's';
+}
+
 async function renderMap(visits){
   markers.forEach(m => map.removeLayer(m.marker));
   markers = [];
@@ -555,6 +612,7 @@ async function refresh(){
     renderKpis(data);
     renderList(data.visits);
     renderRanking(data.ranking);
+    renderFar(data.far, data.farLimitKm);
     renderMap(data.visits);
   } catch (err) {
     document.getElementById('statusText').textContent = 'erro ao atualizar';
