@@ -262,6 +262,7 @@
     border-top:1px solid var(--border);
   }
   .ranking[hidden]{display:none;}
+  .rk-col[hidden]{display:none;}
   .rk-head{
     display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;
     margin-bottom:14px;
@@ -270,7 +271,7 @@
   .rk-head .sub{font-size:12.5px;color:var(--text-muted);}
   .rk-grid{
     display:grid;
-    grid-template-columns:repeat(2,minmax(0,1fr));
+    grid-template-columns:repeat(3,minmax(0,1fr));
     gap:14px;
   }
   .rk-col{
@@ -355,6 +356,7 @@
   </div>
   <div class="rk-grid">
     <div class="rk-col"><h3><span>SDRs</span><span>visitas</span></h3><ol class="rk-list" id="rkSdr"></ol></div>
+    <div class="rk-col" id="rkConsCol" hidden><h3><span>Consultores <small style="font-weight:500;opacity:.75">· recebidos de SDR</small></span><span>visitas</span></h3><ol class="rk-list" id="rkCons"></ol></div>
     <div class="rk-col"><h3><span>Equipes</span><span>visitas</span></h3><ol class="rk-list" id="rkTeam"></ol></div>
   </div>
 </section>
@@ -526,6 +528,10 @@ function renderRanking(rk){
   document.getElementById('rkPeriod').textContent =
     `${rk.start} a ${rk.end} · ${rk.total} visitas no ciclo`;
   renderRankList('rkSdr', rk.sdr);
+  const consCol = document.getElementById('rkConsCol');
+  consCol.hidden = !rk.consultorFromSdr; // só mostra quando o script já conta apenas fichas de SDR
+  document.querySelector('.rk-grid').style.gridTemplateColumns = rk.consultorFromSdr ? '' : 'repeat(2,minmax(0,1fr))';
+  if (rk.consultorFromSdr) renderRankList('rkCons', rk.consultor);
   renderRankList('rkTeam', rk.equipe, unitColor);
 }
 
